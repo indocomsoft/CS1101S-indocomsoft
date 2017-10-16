@@ -8,7 +8,7 @@
 
 //function fractal assumes that n is larger than 0.
 function fractal(pic, n){
-    return n === 1 ? pic : beside(pic, fractal(stackn(2, pic), n-1));
+    return n === 1 ? pic : beside(pic, fractal(stackn(2, pic), n - 1));
 }
 
 // Testing
@@ -28,10 +28,8 @@ function hook(frac) {
 
 function spiral(gradient, n) {
     return n <= 0 ? blank_bb
-                  : n === 1 ? stack_frac(gradient, hook(1/2 * gradient),
-                                         blank_bb)
-                            : stack_frac(gradient, hook(1/2 * gradient),
-                                    quarter_turn_right(spiral(gradient, n-1)));
+                  : stack_frac(gradient, hook(1/2 * gradient),
+                               quarter_turn_right(spiral(gradient, n-1)));
 }
 
 // Testing
