@@ -1,6 +1,6 @@
 # CS1101S-indocomsoft
 
-These are my code submissions for my CS1101S Programming Methodology module during my undergraduate study in National University of Singapore (NUS), School of Computing (SoC) for B.Comp (Honours) in Computer Science.
+These are my code submissions for my [CS1101S](http://www.comp.nus.edu.sg/~cs1101s/) Programming Methodology module during my undergraduate study in National University of Singapore (NUS), School of Computing (SoC) for B.Comp (Honours) in Computer Science.
 
 CS1101S is based on Massachussetts Institute of Technology (MIT) introductory programming class 6.001 and its textbook [Structure and Interpretation of Computer Programs (SICP)](https://en.wikipedia.org/wiki/Structure_and_Interpretation_of_Computer_Programs)
 
