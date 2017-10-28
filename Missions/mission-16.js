@@ -41,14 +41,13 @@ icsbot.Inherits(Player);
 icsbot.prototype.__act = function(){
     Player.prototype.__act.call(this);
 
-    // your solution here
     // A function to check if a given argument is a ServiceBot
     var isServiceBot = function(x) {
                            return is_instance_of(x, ServiceBot);
                        };
     
     // Get the current location
-    var cur_loc = this.getLocation();
+    var here = this.getLocation();
     
     // Retrieve a list of charged weapons
     var charged_weapons = filter(function(x) {
@@ -59,41 +58,33 @@ icsbot.prototype.__act = function(){
     // Only attack if I have a charged weapon
     if (!is_empty_list(charged_weapons)) {
         // Find service bots in the same room
-        var svcbots = filter(isServiceBot, cur_loc.getOccupants());
+        var svcbots = filter(isServiceBot, here.getOccupants());
         // Only attack if there is at least a service bot in the same room
         if (!is_empty_list(svcbots)) {
             // Attack a ServiceBot using a charged Weapon
             this.use(head(charged_weapons), svcbots);
         } else { }
     } else { }
-    
-    // Find things not owned by anyone yet
-    var cur_things = cur_loc.getThings();
-    // Preventing "Error: undefined at undefined, line undefined"
-    var thing = undefined;
-    // Iterate through cur_things to find a keycard
-    while (!is_empty_list(cur_things)) {
-        thing = head(cur_things);
-        // If the current thing is a keycard
-        if (is_instance_of(thing, Keycard)) {
-            // Take it
-            this.take(list(thing));
-            // We have picked up **a** Keycard. Stop iterating.
-            break;
-        } else { }
-        cur_things = tail(cur_things);
-    }
+
+    // Retrieve a list of Keycards in the current room
+    var keycards = filter(function(x) {
+                              return is_instance_of(x, Keycard);
+                          }, here.getThings());
+    // Pick them all up if there is one
+    if (!is_empty_list(keycards)) {
+        this.take(keycards);
+    } else { }
     
     // Retrieve a list of neighbouring rooms
-    var cur_neighbouring = cur_loc.getNeighbours();
+    var neighbours = here.getNeighbours();
     // find out if one of them is ProtectedRoom
-    var cur_protectedroom = filter(function(x) {
-                                      return is_instance_of(x, ProtectedRoom);
-                                  }, cur_neighbouring);
+    var protectedroom = filter(function(x) {
+                                   return is_instance_of(x, ProtectedRoom);
+                               }, neighbours);
     // If we neighbour at least one protected room
-    if (!is_empty_list(cur_protectedroom)) {
+    if (!is_empty_list(protectedroom)) {
         // Move to it
-        this.moveTo(head(cur_protectedroom));
+        this.moveTo(head(protectedroom));
     } else { }
 };
 var newPlayer = new icsbot(shortname);
