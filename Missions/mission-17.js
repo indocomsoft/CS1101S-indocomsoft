@@ -31,6 +31,86 @@ function dequeue(q) {
     set_head(q, tail(head(q)));
     return front;
 }
+
+// Helper functions
+// Check if a list contains x
+function contains(x, lst) {
+    return !is_empty_list(member(x, lst));
+}
+
+// Breadth-First Search
+// Graph: list(pair(cur_loc, list(neighbour1, neighbour2, ...)), ...)
+// Equivalently: list(pair(node, list(neighbours)))
+// goal: function (node) { return ...; }
+function bfs(graph, goal, start) {
+    // To construct the path to follow to reach the node where goal returns true
+    function construct_path(last_node) {
+        // Initialise with empty path, unknown parent, and last node as child
+        var path = [];
+        var parent = undefined;
+        var child = last_node;
+        // When we have not reached starting point
+        while(!is_empty_list(parent)) {
+            // Find the parent in meta
+            parent = meta[last_node];
+            // Insert it in path
+            path = pair(parent, path);
+            // set parent as the new child for the next iteration
+            child = parent;
+        }
+        return path;
+    }
+    // A queue to store which nodes to visit next
+    var to_visit = make_queue();
+    // A list to store visited nodes
+    var visited = [];
+    // A dictionary to maintain meta info used for path formation
+    var meta = [];
+    // Meta is the end of the path
+    meta[start] = [];
+    
+    // First to search is start
+    enqueue(to_visit, start);
+
+    // Initialise variables
+    // to prevent "Error undefined at undefined, line undefined"
+    // Those interpreter warnings on the side that says this is not needed
+    // is lying! SAD! FAKE NEWS!
+    var parent = undefined;
+    var parent_node = undefined;
+    var parent_neighbours = undefined;
+
+    // When not all nodes have been visited
+    while (!is_empty_queue(to_visit)) {
+        // Get the front of the queue
+        parent = dequeue(to_visit);
+        // Extract just the node
+        parent_node = head(parent);
+        // If this fulfills the goal
+        if (goal(parent_node)) {
+            // Return path constructed with current node as the last node
+            return construct_path(parent_node);
+        } else { }
+
+        // Extract the node's neighbours
+        parent_neighbours = tail(parent);
+        // Find out which neighbour nodes have not been visited
+        var filtered = filter(function(x) { return !contains(x, visited); },
+                              parent_neighbours);
+        // Enqueue them into to_visit and mark down their parent to meta
+        for_each(function(x) {
+                     var child_node = head(x);
+                     enqueue(to_visit, child_node);
+                     meta[child_node] = parent_node;
+                 }, filtered);
+        // Mark the current parent node as visited
+        visited = pair(parent_node, visited);
+    }
+    // If we cannot find anything
+    return [];
+}
+
+
 //-------------------------------------------------------------------------
 // icsbot
 //-------------------------------------------------------------------------
