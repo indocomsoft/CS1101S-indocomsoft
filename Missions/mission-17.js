@@ -6,6 +6,31 @@
 //  - You can personalize your character by setting the following values
 //-------------------------------------------------------------------------
 var shortname   = "ics";
+
+// Queue data structure
+function make_queue() {
+    return pair([], []);
+}
+
+function is_empty_queue(q) {
+    return is_empty_list(head(q));
+}
+
+function enqueue(q, item) {
+    if (is_empty_queue(q)) {
+        set_head(q, pair(item, []));
+        set_tail(q, head(q));
+    } else {
+        set_tail(tail(q), pair(item, []));
+        set_tail(q, tail(tail(q)));
+    }
+}
+
+function dequeue(q) {
+    var front = head(head(q));
+    set_head(q, tail(head(q)));
+    return front;
+}
 //-------------------------------------------------------------------------
 // icsbot
 //-------------------------------------------------------------------------
