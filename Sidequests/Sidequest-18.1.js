@@ -245,14 +245,16 @@ Person.prototype.haveFit = function(){
     this.say("Yaaah! I am upset!");
 };
 Person.prototype.surroundings = function() {
+    var self = this;
     var otherThings = map(function(thing){ return thing.getName(); },
-                          filter(function(thing){ return thing !== this; }.bind(this),
+                          filter(function(thing){ return thing !== self; },
                                  this.getPlace().getThings()));
     return listing(otherThings, "nothing");
 };
 Person.prototype.lookAround = function(){
+    var self = this;
     var otherThings = map(function(thing){ return thing.getName(); },
-                          filter(function(thing){ return thing !== this; }.bind(this),
+                          filter(function(thing){ return thing !== self; },
                                  this.getPlace().getThings()));
     this.say("I see " + this.surroundings());
     return otherThings;
@@ -633,7 +635,8 @@ var gmCard = MakeAndInstallSDCard("Grandmaster Card", gmOffice, "888-00-0001");
 // Interactive Game
 
 function tokenize(s){
-    return s.split(" ");
+    var ret = s.split(" ");
+    return ret;
 }
 
 
