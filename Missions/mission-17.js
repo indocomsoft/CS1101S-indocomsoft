@@ -39,9 +39,9 @@ function isIndex(x, arr) {
 }
 
 // Breadth-First Search
-// Graph: list(pair(here, list(neighbour1, neighbour2, ...)), ...)
-// Equivalently: list(pair(node, list(neighbours)))
+// graph: list(room, room, ...)
 // goal: function (node) { return ...; }
+// start: room
 function bfs(graph, goal, start) {
     // To construct the path to follow to reach the node where goal returns true
     function construct_path(last_node) {
