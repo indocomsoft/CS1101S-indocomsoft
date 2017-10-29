@@ -40,7 +40,17 @@ function icsbot(name){
 icsbot.Inherits(Player);
 icsbot.prototype.__act = function(){
     Player.prototype.__act.call(this);
-
+    
+    // Abstraction for is_instance_of
+    var isSomething = function(obj) {
+                          return function(x) {
+                                     return is_instance_of(x, obj);
+                                 };
+                      };
+    // A function to check if a given argument is a charged weapon
+    var isChargedWeapon = function(x) {
+                              return isSomething(Weapon)(x) && !x.isCharging();
+                          };
     // A function to check if a given argument is a ServiceBot
     var isServiceBot = function(x) {
                            return is_instance_of(x, ServiceBot);
@@ -50,10 +60,7 @@ icsbot.prototype.__act = function(){
     var here = this.getLocation();
     
     // Retrieve a list of charged weapons
-    var charged_weapons = filter(function(x) {
-                                     return is_instance_of(x, Weapon)
-                                            && !x.isCharging();
-                                 }, this.getPossessions());
+    var charged_weapons = filter(isChargedWeapon, this.getPossessions());
     
     // Only attack if I have a charged weapon
     if (!is_empty_list(charged_weapons)) {
@@ -67,9 +74,7 @@ icsbot.prototype.__act = function(){
     } else { }
 
     // Retrieve a list of Keycards in the current room
-    var keycards = filter(function(x) {
-                              return is_instance_of(x, Keycard);
-                          }, here.getThings());
+    var keycards = filter(isSomething(Keycard), here.getThings());
     // Pick them all up if there is one
     if (!is_empty_list(keycards)) {
         this.take(keycards);
@@ -78,9 +83,7 @@ icsbot.prototype.__act = function(){
     // Retrieve a list of neighbouring rooms
     var neighbours = here.getNeighbours();
     // find out if one of them is ProtectedRoom
-    var protectedroom = filter(function(x) {
-                                   return is_instance_of(x, ProtectedRoom);
-                               }, neighbours);
+    var protectedroom = filter(isSomething(ProtectedRoom), neighbours);
     // If we neighbour at least one protected room
     if (!is_empty_list(protectedroom)) {
         // Move to it
