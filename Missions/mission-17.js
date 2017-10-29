@@ -33,9 +33,9 @@ function dequeue(q) {
 }
 
 // Helper functions
-// Check if a list contains x
-function contains(x, lst) {
-    return !is_empty_list(member(x, lst));
+// Check if x is a defined index in an array
+function isIndex(x, arr) {
+    return arr[x] !== undefined;
 }
 
 // Breadth-First Search
@@ -94,15 +94,16 @@ function bfs(graph, goal, start) {
         // Extract the node's neighbours
         parent_neighbours = parent_node.getNeighbours();
         // Find out which neighbour nodes have not been visited
-        var filtered = filter(function(x) { return !contains(x, visited); },
-                              parent_neighbours);
+        var filtered = filter(function(x) {
+                                  return !isIndex(x.getName(), visited);
+                              }, parent_neighbours);
         // Enqueue them into to_visit and mark down their parent to meta
         for_each(function(x) {
                      enqueue(to_visit, x);
                      meta[x.getName()] = parent_node;
                  }, filtered);
         // Mark the current parent node as visited
-        visited = pair(parent_node, visited);
+        visited[parent_node.getName()] = true;
     }
     // If we cannot find anything
     return [];
@@ -178,11 +179,11 @@ icsbot.prototype.__act = function(){
     var neighbours = here.getNeighbours();
     /* M17 T1 begin*/
     // Insert the current node into the visited
-    this.visited = pair(here, this.visited);
+    this.visited[here.getName()] = true;
     // make sure anonymous functions can access visited
     var visited = this.visited;
     var unvisited_neighbours = filter(function(x) {
-                                          return !contains(x, visited);
+                                          return !isIndex(x.getName(), visited);
                                       }, neighbours);
     // Retrieve a list of keycards I own
     var my_keycards = filter(isSomething(Keycard), this.getPossessions());
@@ -211,7 +212,7 @@ icsbot.prototype.__act = function(){
         // Search for a path towards the next unvisited neighbour
         this.path = bfs(this.visited,
                         function(x) {
-                            return !contains(x, visited);
+                            return !isIndex(x.getName(), visited);
                         } , here);
         // Move myself to the next location in the path
         this.moveTo(head(this.path));
