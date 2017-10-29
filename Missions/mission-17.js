@@ -77,7 +77,6 @@ function bfs(graph, goal, start) {
     // to prevent "Error undefined at undefined, line undefined"
     // Those interpreter warnings on the side that says this is not needed
     // is lying! SAD! FAKE NEWS!
-    var parent = undefined;
     var parent_node = undefined;
     var parent_neighbours = undefined;
 
@@ -190,9 +189,7 @@ icsbot.prototype.__act = function(){
     /* M17 T1 end*/
 
     // find out if one of them is ProtectedRoom
-    var protectedroom = filter(function(x) {
-                                   return is_instance_of(x, ProtectedRoom);
-                               }, neighbours);
+    var protectedroom = filter(isSomething(ProtectedRoom), neighbours);
     /* M17 T1 begin*/ 
     // If we neighbour at least one protected room and we have a keycard
     if (!is_empty_list(protectedroom) && !is_empty_list(my_keycards)) {
