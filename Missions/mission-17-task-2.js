@@ -1,12 +1,25 @@
 // Source Week 10
 
-//Task 1
+/* M17 T2
+ * Added code to:
+ * 1. When encountering adjacent generator room:
+ *    a. Remember the location if I do not have a keycard
+ *    b. Move to it if I have a keycard
+ * 2. Do a breadth-first search to find optimum path to take to find:
+ *    a. The generator room once I have a keycard
+ *    b. The nearest ServiceBot if I do not have the keycard 
+ * 3. For the path created by BFS, check whether I am still following it
+ *    If not, I have most likely been evacuated and respawned in a different
+ *    location. Then re-do another BFS.
+ * 4. Avoid entering any ProtectedRoom if I don't have a KeyCard
+*/
+
 //-------------------------------------------------------------------------
 // Customization
 //  - You can personalize your character by setting the following values
 //-------------------------------------------------------------------------
 var shortname   = "ics";
-/* M17 T1 start*/
+
 // Queue data structure
 function make_queue() {
     return pair([], []);
@@ -46,7 +59,7 @@ function bfs(graph, goal, start) {
     // To construct the path to follow to reach the node where goal returns true
     function construct_path(last_node) {
         // Initialise with empty path, unknown parent, and last node as child
-        var path = [];
+        var path = pair(last_node, []);
         var parent = undefined;
         var child = last_node;
         // When we have not reached starting point
@@ -58,7 +71,6 @@ function bfs(graph, goal, start) {
             // set parent as the new child for the next iteration
             child = parent;
         }
-        // Remove the first element as it is the starting point itself
         return tail(path);
     }
     // A queue to store which nodes to visit next
@@ -104,10 +116,10 @@ function bfs(graph, goal, start) {
         // Mark the current parent node as visited
         visited[parent_node.getName()] = true;
     }
-    // If we cannot find anything
+    // If we cannot find anything (unlikely)
     return [];
 }
-/* M17 T1 end*/
+
 
 //-------------------------------------------------------------------------
 // icsbot
@@ -115,13 +127,12 @@ function bfs(graph, goal, start) {
 
 function icsbot(name){
     Player.call(this, name);
-    /* M17 T1 start*/
     // Path to follow, if any
     this.path = [];
     // Graph of traversed nodes
     this.visited = [];
-    /* M17 T1 end*/
-
+    // Room name of generator room
+    this.genRoomName = undefined;
 }
 icsbot.Inherits(Player);
 icsbot.prototype.__act = function(){
@@ -138,32 +149,29 @@ icsbot.prototype.__act = function(){
     var isChargedWeapon = function(x) {
                               return isSomething(Weapon)(x) && !x.isCharging();
                           };
-    /* M17 T1 begin*/
     var isSecurityDrone = isSomething(SecurityDrone);
-    /* M17 T1 end*/
     
     // Get the current location
     var here = this.getLocation();
     // Retrieve a list of charged weapons
     var charged_weapons = filter(isChargedWeapon, this.getPossessions());
-    
+    // Retrieve a list of keycards I own
+    var my_keycards = filter(isSomething(Keycard), this.getPossessions());
+
     // Only attack if I have a charged weapon
     if (!is_empty_list(charged_weapons)) {
         // Find service bots in the same room
         var svcbots = filter(isSomething(ServiceBot), here.getOccupants());
-        /* M17 T1 begin*/
         // Find security drones in the same room
         var secdrones = filter(isSomething(SecurityDrone), here.getOccupants());
-        /* M17 T1 end*/
-        // Only attack if there is at least a service bot in the same room
-        if (!is_empty_list(svcbots)) {
+        // Only attack in order of preference of
+        // (1) ServiceBot and no KeyCard, (2) SecurityDrone
+        if (!is_empty_list(svcbots) && is_empty_list(my_keycards)) {
             // Attack a ServiceBot using a charged Weapon
             this.use(head(charged_weapons), svcbots);
-        /* M17 T1 begin*/
         } else if (!is_empty_list(secdrones)) {
             // Attack a SecurityDrone using a charged Weapon
             this.use(head(charged_weapons), svcbots);
-        /* M17 T1 end*/
         } else { }
     } else { }
 
@@ -176,52 +184,103 @@ icsbot.prototype.__act = function(){
     
     // Retrieve a list of neighbouring rooms
     var neighbours = here.getNeighbours();
-    /* M17 T1 begin*/
-    // Insert the current node into the visited
+    // Insert the current room into visited
     this.visited[here.getName()] = true;
     // make sure anonymous functions can access visited
     var visited = this.visited;
     var unvisited_neighbours = filter(function(x) {
                                           return !isIndex(x.getName(), visited);
                                       }, neighbours);
-    // Retrieve a list of keycards I own
-    var my_keycards = filter(isSomething(Keycard), this.getPossessions());
-    /* M17 T1 end*/
+    // Update the list of keycards I own
+    my_keycards = filter(isSomething(Keycard), this.getPossessions());
 
     // find out if one of them is ProtectedRoom
     var protectedroom = filter(isSomething(ProtectedRoom), neighbours);
-    /* M17 T1 begin*/ 
-    // If we neighbour at least one protected room and we have a keycard
-    if (!is_empty_list(protectedroom) && !is_empty_list(my_keycards)) {
-        // Move to the protected room
-        this.moveTo(head(protectedroom)); 
-    // If we have a path to follow
-    } else if (!is_empty_list(this.path)) {
-        // Move myself to the next location in the path
-        this.moveTo(head(this.path));
-        // Proceed to the next location in the path
-        this.path = tail(this.path);
-    // If I have unvisited neighbour(s)
-    } else if (!is_empty_list(unvisited_neighbours)) {
-        // Choose arbitrarily: go to the first unvisited neighbour
-        this.moveTo(head(unvisited_neighbours));
+    // find out if any of the ProtectedRoom contains generator(s)
+    var genroom = filter(function(x) {
+                            return !is_empty_list(filter(isSomething(Generator),
+                                                         x.getThings()));
+                         }, protectedroom);
+    // If indeed we have found the generator room, remember it
+    if (!is_empty_list(genroom)) {
+        this.genRoomName = head(genroom).getName();
+    } else { }
+
+    // Sorry for spaghetti conditionals here :(
+    // Splitting them into smaller subroutines involve doing hacky stuffs like
+    // var self = this which I do not find comfortable with using
+
+    // If I have a keycard
+    if (!is_empty_list(my_keycards)) {
+        // If I neighbour at least a generator room
+        if (!is_empty_list(genroom)) {
+            this.moveTo(head(genroom));
+        // If I neighbour at least one protected room and I have a keycard
+        // Fulfilling requirement of M17 T2 and requirement of M16
+        } else if (!is_empty_list(protectedroom)) {
+            this.moveTo(head(protectedroom));
+        // If we have a path to follow
+        } else if (length(this.path) > 1) {
+            // Check if we have been evacuated and hence relocated
+            if (here !== head(this.path)) {
+                // BFS towards the generator room
+                this.path = bfs(this.visited,
+                                function(x) {
+                                  return !is_empty_list(
+                                             filter(isSomething(Generator),
+                                                    x.getThings()));
+                                }, here);
+                // Move myself to the next location in the path
+                this.moveTo(head(this.path));
+            } else {
+                // Proceed to the next room in the path
+                this.path = tail(this.path);
+                this.moveTo(head(this.path));
+            }
+        } else {
+            // BFS towards the generator room
+            this.path = bfs(this.visited,
+                                function(x) {
+                                  return !is_empty_list(
+                                             filter(isSomething(Generator),
+                                                    x.getThings()));
+                                }, here);
+            // Move myself to the next location in the path
+            this.moveTo(head(this.path));
+        }
+    // If I do not have a keycard
     } else {
-        // Search for a path towards the next unvisited neighbour
-        this.path = bfs(this.visited,
+        // Move towards the nearest ServiceBot and attack
+        // BFS towards the nearest ServiceBot
+        var path = bfs(this.visited,
                         function(x) {
-                            return !isIndex(x.getName(), visited);
-                        } , here);
+                           return !is_empty_list(filter(isSomething(ServiceBot),
+                                                        x.getOccupants()));
+                        }, here);
         // Move myself to the next location in the path
-        this.moveTo(head(this.path));
-        // Proceed to the next location in the path
-        this.path = tail(this.path);
+        this.moveTo(head(path));
+        here = this.getLocation();
+        // ATTACK!
+        // Retrieve a list of charged weapons
+        charged_weapons = filter(isChargedWeapon, this.getPossessions());
+        // Only attack if I have a charged weapon
+        if (!is_empty_list(charged_weapons)) {
+            // Find service bots in the same room
+            var svcbots = filter(isSomething(ServiceBot), here.getOccupants());
+            if (!is_empty_list(svcbots)) {
+                this.use(head(charged_weapons), svcbots);
+            } else { }
+        } else { }
+        // Retrieve a list of Keycards in the current room
+        var keycards = filter(isSomething(Keycard), here.getThings());
+        // Pick them all up if there is one
+        if (!is_empty_list(keycards)) {
+            this.take(keycards);
+        } else { }
     }
-    /* M17 T1 end*/
 };
 
 
 // Uncomment the following to test
 // var newPlayer = new icsbot(shortname);
 // test_task(newPlayer);
-
-// Task 2
