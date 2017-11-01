@@ -217,6 +217,11 @@ icsbot.prototype.__act = function(){
                                             : true);
                         }, self.getLocation());
     }
+    // Wrapper to always try to attack after moving
+    function moveTo(room) {
+        self.moveTo(room);
+        attack();
+    }
     
     attack();
 
@@ -252,24 +257,24 @@ icsbot.prototype.__act = function(){
     if (!is_empty_list(my_keycards)) {
         // If I neighbour at least a generator room
         if (!is_empty_list(genroom)) {
-            this.moveTo(head(genroom));
+            moveTo(head(genroom));
         // If I neighbour at least one protected room and I have a keycard
         // Fulfilling requirement of M17 T2 and requirement of M16
         } else if (!is_empty_list(protectedroom)) {
-            this.moveTo(head(protectedroom));
+            moveTo(head(protectedroom));
+            // TOO MANY ERRORS? 91% SCANNED ONLY?
+            // I HAVE TO DEBUG THE CALL STACK OF THIS PROGRAMME TO 100%
+            // WHEN I HAVE ERRORS NO MATTER WHAT. WORK HARDER!
         // If we have a path to follow and we are still on track
         } else if (length(this.path) > 1 && here === head(this.path)) {
             // Proceed to the next room in the path
             this.path = tail(this.path);
-            this.moveTo(head(this.path));
-            // TOO MANY ERRORS? 91% SCANNED ONLY?
-            // I HAVE TO DEBUG THE CALL STACK OF THIS PROGRAMME TO 100%
-            // WHEN I HAVE ERRORS NO MATTER WHAT. WORK HARDER!
+            moveTo(head(this.path));
         } else {
             // BFS towards the generator room
             search_thing(Generator);
             // Move myself to the next location in the path
-            this.moveTo(head(this.path));
+            moveTo(head(this.path));
         }
     // If I do not have a keycard
     } else {
@@ -278,7 +283,7 @@ icsbot.prototype.__act = function(){
         // but avoid entering ProtectedRoom since we do not yet have a keycard
         search_occupant(ServiceBot);
         // Move myself to the next location in the path
-        this.moveTo(head(this.path));
+        moveTo(head(this.path));
         // ATTACK!
         attack();
     }
