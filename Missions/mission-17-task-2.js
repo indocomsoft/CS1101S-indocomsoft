@@ -11,7 +11,10 @@
  * 3. For the path created by BFS, check whether I am still following it
  *    If not, I have most likely been evacuated and respawned in a different
  *    location. Then re-do another BFS.
- * 4. Avoid entering any ProtectedRoom if I don't have a KeyCard
+ * 4. For searching of ServiceBot, BFS during every turn since these bots
+ *    move around and given the size of 4x4x4, BFS can be done every turn
+ *    in reasonable time
+ * 5. Avoid entering any ProtectedRoom if I don't have a KeyCard
 */
 
 //-------------------------------------------------------------------------
@@ -150,38 +153,68 @@ icsbot.prototype.__act = function(){
                               return isSomething(Weapon)(x) && !x.isCharging();
                           };
     var isSecurityDrone = isSomething(SecurityDrone);
-    
-    // Get the current location
-    var here = this.getLocation();
-    // Retrieve a list of charged weapons
-    var charged_weapons = filter(isChargedWeapon, this.getPossessions());
-    // Retrieve a list of keycards I own
-    var my_keycards = filter(isSomething(Keycard), this.getPossessions());
+    // Allow subroutines to access this
+    var self = this;
 
-    // Only attack if I have a charged weapon
-    if (!is_empty_list(charged_weapons)) {
-        // Find service bots in the same room
-        var svcbots = filter(isSomething(ServiceBot), here.getOccupants());
-        // Find security drones in the same room
-        var secdrones = filter(isSomething(SecurityDrone), here.getOccupants());
-        // Only attack in order of preference of
-        // (1) ServiceBot and no KeyCard, (2) SecurityDrone
-        if (!is_empty_list(svcbots) && is_empty_list(my_keycards)) {
-            // Attack a ServiceBot using a charged Weapon
-            this.use(head(charged_weapons), svcbots);
-        } else if (!is_empty_list(secdrones)) {
-            // Attack a SecurityDrone using a charged Weapon
-            this.use(head(charged_weapons), svcbots);
+    // Attack in order of preference of
+    // (1) ServiceBot and no KeyCard, (2) SecurityDrone
+    function attack() {
+        // Get the current location
+        var here = self.getLocation();
+        // Retrieve a list of charged weapons
+        var charged_weapons = filter(isChargedWeapon, self.getPossessions());
+        // Retrieve a list of keycards I own
+        var my_keycards = filter(isSomething(Keycard), self.getPossessions());
+        // Only attack if I have a charged weapon
+        if (!is_empty_list(charged_weapons)) {
+            // Find service bots in the same room
+            var svcbots = filter(isSomething(ServiceBot), here.getOccupants());
+            // Find security drones in the same room
+            var secdrones = filter(isSomething(SecurityDrone),
+                                               here.getOccupants());
+            if (!is_empty_list(svcbots) && is_empty_list(my_keycards)) {
+                // Attack a ServiceBot using a charged Weapon
+                self.use(head(charged_weapons), svcbots);
+            } else if (!is_empty_list(secdrones)) {
+                // Attack a SecurityDrone using a charged Weapon
+                self.use(head(charged_weapons), svcbots);
+            } else { }
         } else { }
-    } else { }
-
-    // Retrieve a list of Keycards in the current room
-    var keycards = filter(isSomething(Keycard), here.getThings());
-    // Pick them all up if there is one
-    if (!is_empty_list(keycards)) {
-        this.take(keycards);
-    } else { }
+        // Retrieve a list of Keycards in the current room
+        var keycards = filter(isSomething(Keycard), here.getThings());
+        // Pick them all up if there is one
+        if (!is_empty_list(keycards)) {
+            self.take(keycards);
+        } else { }
+    }
+    // Search for path towards the nearest instance of Thing obj
+    function search_thing(obj) {
+        self.path = bfs(self.visited,
+                        function(x) {
+                          return !is_empty_list(
+                                     filter(isSomething(obj),
+                                            x.getThings()));
+                        }, self.getLocation());
+    }
+    // Search for path towards the nearest instance of Occupant obj
+    // But avoid going into ProtectedRoom if we have no KeyCard
+    function search_occupant(obj) {
+        // Retrieve the list of keycards I own
+        var my_keycards = filter(isSomething(Keycard), self.getPossessions());
+        self.path = bfs(self.visited,
+                        function(x) {
+                           return !is_empty_list(filter(isSomething(ServiceBot),
+                                                        x.getOccupants()))
+                                   && (is_empty_list(my_keycards)
+                                            ? !isSomething(ProtectedRoom)(x)
+                                            : true);
+                        }, self.getLocation());
+    }
     
+    attack();
+
+    // Get the current location
+    var here = self.getLocation();
     // Retrieve a list of neighbouring rooms
     var neighbours = here.getNeighbours();
     // Insert the current room into visited
@@ -191,8 +224,8 @@ icsbot.prototype.__act = function(){
     var unvisited_neighbours = filter(function(x) {
                                           return !isIndex(x.getName(), visited);
                                       }, neighbours);
-    // Update the list of keycards I own
-    my_keycards = filter(isSomething(Keycard), this.getPossessions());
+    // Retrieve the list of keycards I own
+    var my_keycards = filter(isSomething(Keycard), this.getPossessions());
 
     // find out if one of them is ProtectedRoom
     var protectedroom = filter(isSomething(ProtectedRoom), neighbours);
@@ -206,10 +239,8 @@ icsbot.prototype.__act = function(){
         this.genRoomName = head(genroom).getName();
     } else { }
 
-    // Sorry for spaghetti conditionals here :(
-    // Splitting them into smaller subroutines involve doing hacky stuffs like
-    // var self = this which I do not find comfortable with using
 
+    // Conditionals for which next room to take.
     // If I have a keycard
     if (!is_empty_list(my_keycards)) {
         // If I neighbour at least a generator room
@@ -219,32 +250,14 @@ icsbot.prototype.__act = function(){
         // Fulfilling requirement of M17 T2 and requirement of M16
         } else if (!is_empty_list(protectedroom)) {
             this.moveTo(head(protectedroom));
-        // If we have a path to follow
-        } else if (length(this.path) > 1) {
-            // Check if we have been evacuated and hence relocated
-            if (here !== head(this.path)) {
-                // BFS towards the generator room
-                this.path = bfs(this.visited,
-                                function(x) {
-                                  return !is_empty_list(
-                                             filter(isSomething(Generator),
-                                                    x.getThings()));
-                                }, here);
-                // Move myself to the next location in the path
-                this.moveTo(head(this.path));
-            } else {
-                // Proceed to the next room in the path
-                this.path = tail(this.path);
-                this.moveTo(head(this.path));
-            }
+        // If we have a path to follow and we are still on track
+        } else if (length(this.path) > 1 && here === head(this.path)) {
+            // Proceed to the next room in the path
+            this.path = tail(this.path);
+            this.moveTo(head(this.path));
         } else {
             // BFS towards the generator room
-            this.path = bfs(this.visited,
-                                function(x) {
-                                  return !is_empty_list(
-                                             filter(isSomething(Generator),
-                                                    x.getThings()));
-                                }, here);
+            search_thing(Generator);
             // Move myself to the next location in the path
             this.moveTo(head(this.path));
         }
@@ -253,32 +266,11 @@ icsbot.prototype.__act = function(){
         // Move towards the nearest ServiceBot and attack
         // BFS towards the nearest ServiceBot
         // but avoid entering ProtectedRoom since we do not yet have a keycard
-        var path = bfs(this.visited,
-                        function(x) {
-                           return !is_empty_list(filter(isSomething(ServiceBot),
-                                                        x.getOccupants()))
-                                   && !isSomething(ProtectedRoom)(x);
-                        }, here);
+        search_occupant(ServiceBot);
         // Move myself to the next location in the path
-        this.moveTo(head(path));
-        here = this.getLocation();
+        this.moveTo(head(this.path));
         // ATTACK!
-        // Retrieve a list of charged weapons
-        charged_weapons = filter(isChargedWeapon, this.getPossessions());
-        // Only attack if I have a charged weapon
-        if (!is_empty_list(charged_weapons)) {
-            // Find service bots in the same room
-            var svcbots = filter(isSomething(ServiceBot), here.getOccupants());
-            if (!is_empty_list(svcbots)) {
-                this.use(head(charged_weapons), svcbots);
-            } else { }
-        } else { }
-        // Retrieve a list of Keycards in the current room
-        var keycards = filter(isSomething(Keycard), here.getThings());
-        // Pick them all up if there is one
-        if (!is_empty_list(keycards)) {
-            this.take(keycards);
-        } else { }
+        attack();
     }
 };
 
