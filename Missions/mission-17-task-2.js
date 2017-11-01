@@ -196,6 +196,8 @@ icsbot.prototype.__act = function(){
     // Search for path towards the nearest instance of Thing obj
     // But avoid going into ProtectedRoom if we have no KeyCard
     function search_thing(obj) {
+        // Retrieve the list of keycards I own
+        var my_keycards = filter(isSomething(Keycard), self.getPossessions());
         self.path = bfs(function(x) {
                           return !is_empty_list(
                                      filter(isSomething(obj),
