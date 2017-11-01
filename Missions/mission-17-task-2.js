@@ -62,10 +62,7 @@ function bfs(goal, start) {
     function construct_path(last_node) {
         // Initialise with empty path, unknown parent, and last node as child
         var path = pair(last_node, []);
-        // STOP SAYING I NEED NOT INITIALIZE TO UNDEFINED, YOU LITTLE PIECE OF
-        // ... SOFTWARE!
-        // YOU THROW ERROR EVERYTIME I DO AN ASSIGNMENT WITHOUT DECLARATION
-        // OR DECLARATION WITHOUT INITIAL VALUE
+        // Preventing "Error undefined at undefined, line undefined"
         var parent = undefined;
         var child = last_node;
         // When we have not reached starting point
@@ -111,13 +108,10 @@ function bfs(goal, start) {
         // Extract the node's neighbours
         parent_neighbours = parent_node.getNeighbours();
         // Find out which neighbour nodes have not been visited
-        // FFS IT'S NOT A BLOODY LOOP
-        // STOP SAYING RANDOM THINGS AND START MAKING SENSE
         var filtered = filter(function(x) {
                                   return !isIndex(x.getName(), visited);
                               }, parent_neighbours);
         // Enqueue them into to_visit and mark down their parent to meta
-        // AGAIN? YOU THINK WHAT? I STUPID ISIT?
         for_each(function(x) {
                      enqueue(to_visit, x);
                      meta[x.getName()] = parent_node;
@@ -259,9 +253,6 @@ icsbot.prototype.__act = function(){
         // Fulfilling requirement of M17 T2 and requirement of M16
         } else if (!is_empty_list(protectedroom)) {
             var move_target = head(protectedroom);
-            // TOO MANY ERRORS? 91% SCANNED ONLY?
-            // I HAVE TO DEBUG THE CALL STACK OF THIS PROGRAMME TO 100%
-            // WHEN I HAVE ERRORS NO MATTER WHAT. WORK HARDER!
         // If we have a path to follow and we are still on track
         } else if (length(self.path) > 1 && here === head(self.path)) {
             // Proceed to the next room in the path
