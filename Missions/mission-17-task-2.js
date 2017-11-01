@@ -55,10 +55,9 @@ function isIndex(x, arr) {
 }
 
 // Breadth-First Search
-// graph: list(room, room, ...)
 // goal: function (node) { return ...; }
 // start: room
-function bfs(graph, goal, start) {
+function bfs(goal, start) {
     // To construct the path to follow to reach the node where goal returns true
     function construct_path(last_node) {
         // Initialise with empty path, unknown parent, and last node as child
@@ -197,8 +196,7 @@ icsbot.prototype.__act = function(){
     // Search for path towards the nearest instance of Thing obj
     // But avoid going into ProtectedRoom if we have no KeyCard
     function search_thing(obj) {
-        self.path = bfs(self.visited,
-                        function(x) {
+        self.path = bfs(function(x) {
                           return !is_empty_list(
                                      filter(isSomething(obj),
                                             x.getThings()))
@@ -212,8 +210,7 @@ icsbot.prototype.__act = function(){
     function search_occupant(obj) {
         // Retrieve the list of keycards I own
         var my_keycards = filter(isSomething(Keycard), self.getPossessions());
-        self.path = bfs(self.visited,
-                        function(x) {
+        self.path = bfs(function(x) {
                            return !is_empty_list(filter(isSomething(ServiceBot),
                                                         x.getOccupants()))
                                    && (is_empty_list(my_keycards)
