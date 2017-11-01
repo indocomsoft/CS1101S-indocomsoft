@@ -195,12 +195,16 @@ icsbot.prototype.__act = function(){
         } else { }
     }
     // Search for path towards the nearest instance of Thing obj
+    // But avoid going into ProtectedRoom if we have no KeyCard
     function search_thing(obj) {
         self.path = bfs(self.visited,
                         function(x) {
                           return !is_empty_list(
                                      filter(isSomething(obj),
-                                            x.getThings()));
+                                            x.getThings()))
+                                 && (is_empty_list(my_keycards)
+                                            ? !isSomething(ProtectedRoom)(x)
+                                            : true);
                         }, self.getLocation());
     }
     // Search for path towards the nearest instance of Occupant obj
@@ -217,11 +221,6 @@ icsbot.prototype.__act = function(){
                                             : true);
                         }, self.getLocation());
     }
-    // Wrapper to always try to attack after moving
-    function moveTo(room) {
-        self.moveTo(room);
-        attack();
-    }
     
     attack();
 
@@ -230,14 +229,13 @@ icsbot.prototype.__act = function(){
     // Retrieve a list of neighbouring rooms
     var neighbours = here.getNeighbours();
     // Insert the current room into visited
-    this.visited[here.getName()] = true;
-    // make sure anonymous functions can access visited
-    var visited = this.visited;
+    self.visited[here.getName()] = true;
     var unvisited_neighbours = filter(function(x) {
-                                          return !isIndex(x.getName(), visited);
+                                          return !isIndex(x.getName(),
+                                                          self.visited);
                                       }, neighbours);
     // Retrieve the list of keycards I own
-    var my_keycards = filter(isSomething(Keycard), this.getPossessions());
+    var my_keycards = filter(isSomething(Keycard), self.getPossessions());
 
     // find out if one of them is ProtectedRoom
     var protectedroom = filter(isSomething(ProtectedRoom), neighbours);
@@ -248,7 +246,7 @@ icsbot.prototype.__act = function(){
                          }, protectedroom);
     // If indeed we have found the generator room, remember it
     if (!is_empty_list(genroom)) {
-        this.genRoomName = head(genroom).getName();
+        self.genRoomName = head(genroom).getName();
     } else { }
 
 
@@ -257,36 +255,34 @@ icsbot.prototype.__act = function(){
     if (!is_empty_list(my_keycards)) {
         // If I neighbour at least a generator room
         if (!is_empty_list(genroom)) {
-            moveTo(head(genroom));
+            var move_target = head(genroom);
         // If I neighbour at least one protected room and I have a keycard
         // Fulfilling requirement of M17 T2 and requirement of M16
         } else if (!is_empty_list(protectedroom)) {
-            moveTo(head(protectedroom));
+            var move_target = head(protectedroom);
             // TOO MANY ERRORS? 91% SCANNED ONLY?
             // I HAVE TO DEBUG THE CALL STACK OF THIS PROGRAMME TO 100%
             // WHEN I HAVE ERRORS NO MATTER WHAT. WORK HARDER!
         // If we have a path to follow and we are still on track
-        } else if (length(this.path) > 1 && here === head(this.path)) {
+        } else if (length(self.path) > 1 && here === head(self.path)) {
             // Proceed to the next room in the path
-            this.path = tail(this.path);
-            moveTo(head(this.path));
+            self.path = tail(self.path);
+            var move_target = head(self.path);
         } else {
             // BFS towards the generator room
             search_thing(Generator);
             // Move myself to the next location in the path
-            moveTo(head(this.path));
+            var move_target = head(self.path);
         }
-    // If I do not have a keycard
+    // If I do not have a keycard, move towards the nearest ServiceBot and attack
     } else {
-        // Move towards the nearest ServiceBot and attack
         // BFS towards the nearest ServiceBot
-        // but avoid entering ProtectedRoom since we do not yet have a keycard
         search_occupant(ServiceBot);
         // Move myself to the next location in the path
-        moveTo(head(this.path));
-        // ATTACK!
-        attack();
+        var move_target = head(self.path);
     }
+    self.moveTo(move_target);
+    attack();
 };
 
 
