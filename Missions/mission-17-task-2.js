@@ -252,10 +252,12 @@ icsbot.prototype.__act = function(){
     } else {
         // Move towards the nearest ServiceBot and attack
         // BFS towards the nearest ServiceBot
+        // but avoid entering ProtectedRoom since we do not yet have a keycard
         var path = bfs(this.visited,
                         function(x) {
                            return !is_empty_list(filter(isSomething(ServiceBot),
-                                                        x.getOccupants()));
+                                                        x.getOccupants()))
+                                   && !isSomething(ProtectedRoom)(x);
                         }, here);
         // Move myself to the next location in the path
         this.moveTo(head(path));
