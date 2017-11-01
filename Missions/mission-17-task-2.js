@@ -63,6 +63,10 @@ function bfs(graph, goal, start) {
     function construct_path(last_node) {
         // Initialise with empty path, unknown parent, and last node as child
         var path = pair(last_node, []);
+        // STOP SAYING I NEED NOT INITIALIZE TO UNDEFINED, YOU LITTLE PIECE OF
+        // ... SOFTWARE!
+        // YOU THROW ERROR EVERYTIME I DO AN ASSIGNMENT WITHOUT DECLARATION
+        // OR DECLARATION WITHOUT INITIAL VALUE
         var parent = undefined;
         var child = last_node;
         // When we have not reached starting point
@@ -108,10 +112,13 @@ function bfs(graph, goal, start) {
         // Extract the node's neighbours
         parent_neighbours = parent_node.getNeighbours();
         // Find out which neighbour nodes have not been visited
+        // FFS IT'S NOT A BLOODY LOOP
+        // STOP SAYING RANDOM THINGS AND START MAKING SENSE
         var filtered = filter(function(x) {
                                   return !isIndex(x.getName(), visited);
                               }, parent_neighbours);
         // Enqueue them into to_visit and mark down their parent to meta
+        // AGAIN? YOU THINK WHAT? I STUPID ISIT?
         for_each(function(x) {
                      enqueue(to_visit, x);
                      meta[x.getName()] = parent_node;
@@ -255,6 +262,9 @@ icsbot.prototype.__act = function(){
             // Proceed to the next room in the path
             this.path = tail(this.path);
             this.moveTo(head(this.path));
+            // TOO MANY ERRORS? 91% SCANNED ONLY?
+            // I HAVE TO DEBUG THE CALL STACK OF THIS PROGRAMME TO 100%
+            // WHEN I HAVE ERRORS NO MATTER WHAT. WORK HARDER!
         } else {
             // BFS towards the generator room
             search_thing(Generator);
