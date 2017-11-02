@@ -1,7 +1,8 @@
 // Source Week 10
 
 /* M18 T2
- * 
+ * Changing the code at the next room conditional to arm the bomb when moving
+ * to Generator room, and then flee.
 */
 
 
@@ -47,18 +48,15 @@ function isIndex(x, arr) {
 }
 
 // Breadth-First Search
-// graph: list(room, room, ...)
 // goal: function (node) { return ...; }
 // start: room
-function bfs(goal, start) {
+// room_condition: function (node) { return ...; }
+function bfs(goal, start, room_condition) {
     // To construct the path to follow to reach the node where goal returns true
     function construct_path(last_node) {
         // Initialise with empty path, unknown parent, and last node as child
         var path = pair(last_node, []);
-        // STOP SAYING I NEED NOT INITIALIZE TO UNDEFINED, YOU LITTLE PIECE OF
-        // ... SOFTWARE!
-        // YOU THROW ERROR EVERYTIME I DO AN ASSIGNMENT WITHOUT DECLARATION
-        // OR DECLARATION WITHOUT INITIAL VALUE
+        // Preventing "Error undefined at undefined, line undefined"
         var parent = undefined;
         var child = last_node;
         // When we have not reached starting point
@@ -104,13 +102,13 @@ function bfs(goal, start) {
         // Extract the node's neighbours
         parent_neighbours = parent_node.getNeighbours();
         // Find out which neighbour nodes have not been visited
-        // FFS IT'S NOT A BLOODY LOOP
-        // STOP SAYING RANDOM THINGS AND START MAKING SENSE
+        // and fulfills room_condition
+        var rc = room_condition;
         var filtered = filter(function(x) {
-                                  return !isIndex(x.getName(), visited);
+                                  return !isIndex(x.getName(), visited)
+                                          && rc(x);
                               }, parent_neighbours);
         // Enqueue them into to_visit and mark down their parent to meta
-        // AGAIN? YOU THINK WHAT? I STUPID ISIT?
         for_each(function(x) {
                      enqueue(to_visit, x);
                      meta[x.getName()] = parent_node;
@@ -137,6 +135,12 @@ function icsbot(name){
     this.visited = [];
     // Room name of generator room
     this.genRoomName = undefined;
+    // Flag whether in fleeing mode
+    this.fleeing = false;
+    // Bomb armed
+    this.bomb_armed = undefined;
+    // Range of the Bomb armed
+    this.bomb_range = undefined;
 }
 icsbot.Inherits(Player);
 icsbot.prototype.__act = function(){
@@ -290,11 +294,12 @@ icsbot.prototype.__act = function(){
         self.path = bfs(function(x) {
                           return !is_empty_list(
                                      filter(isSomething(obj),
-                                            x.getThings()))
-                                 && (is_empty_list(my_keycards)
-                                            ? !isSomething(ProtectedRoom)(x)
-                                            : true);
-                        }, self.getLocation());
+                                            x.getThings()));
+                        }, self.getLocation(),
+                        (is_empty_list(my_keycards)
+                            ? function(x) {
+                                return !isSomething(ProtectedRoom)(x); }
+                            : function(x) { return true; }));
     }
     // Search for path towards the nearest instance of Occupant obj
     // But avoid going into ProtectedRoom if we have no KeyCard
@@ -304,17 +309,53 @@ icsbot.prototype.__act = function(){
         self.path = bfs(function(x) {
                            return !is_empty_list(filter(isSomething(ServiceBot),
                                                         x.getOccupants()))
-                                   && (is_empty_list(my_keycards)
-                                            ? !isSomething(ProtectedRoom)(x)
-                                            : true);
-                        }, self.getLocation());
+                                    && (self.fleeing
+                                            ? is_within_bomb_range
+                                            : function(x) { return true; });
+                        }, self.getLocation(),
+                        (is_empty_list(my_keycards)
+                            ? function(x) {
+                                return !isSomething(ProtectedRoom)(x); }
+                            : function(x) { return true; }));
     }
-    // Enumerate Occupant obj in a specified range
+    
+    function is_within_bomb_range(room) {
+        function helper(exits) {
+            function help(dir, loc, count) {
+                if (count > range || !loc) {
+                    return false;
+                } else if (loc === self.bomb_armed) {
+                    return true;
+                } else {
+                    return help(dir, loc.getExit(dir), count + 1);
+                }
+            }
+            if (is_empty_list(exits)) {
+                return false;
+            } else {
+                var cur = head(exits);
+                return help(cur, here, 1) ? true
+                                          : helper(tail(exits));
+            }
+        }
+        return helper(room.getExits());
+    }
+
     
     attack();
 
     // Get the current location
     var here = self.getLocation();
+
+    // If we are in a generator room
+    if (!is_empty_list(filter(isSomething(Generator), here.getThings()))) {
+        self.fleeing = true;
+        var bomb = filter(isSomething(Bomb), self.getPossessions());
+        self.bomb_range = head(bomb).getRange();
+        self.bomb_armed = head(bomb);
+        self.use(head(bomb));
+    } else { }
+
     // Retrieve a list of neighbouring rooms
     var neighbours = here.getNeighbours();
     // Insert the current room into visited
@@ -341,17 +382,10 @@ icsbot.prototype.__act = function(){
 
     // Conditionals for which next room to take.
     // If I have a keycard
-    if (!is_empty_list(my_keycards)) {
+    if (!is_empty_list(my_keycards) && !self.fleeing) {
         // If I neighbour at least a generator room
         if (!is_empty_list(genroom)) {
             var move_target = head(genroom);
-        // If I neighbour at least one protected room and I have a keycard
-        // Fulfilling requirement of M17 T2 and requirement of M16
-        } else if (!is_empty_list(protectedroom)) {
-            var move_target = head(protectedroom);
-            // TOO MANY ERRORS? 91% SCANNED ONLY?
-            // I HAVE TO DEBUG THE CALL STACK OF THIS PROGRAMME TO 100%
-            // WHEN I HAVE ERRORS NO MATTER WHAT. WORK HARDER!
         // If we have a path to follow and we are still on track
         } else if (length(self.path) > 1 && here === head(self.path)) {
             // Proceed to the next room in the path
