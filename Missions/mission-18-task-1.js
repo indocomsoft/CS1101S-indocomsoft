@@ -54,18 +54,15 @@ function isIndex(x, arr) {
 }
 
 // Breadth-First Search
-// graph: list(room, room, ...)
 // goal: function (node) { return ...; }
 // start: room
-function bfs(goal, start) {
+// room_condition: function (node) { return ...; }
+function bfs(goal, start, room_condition) {
     // To construct the path to follow to reach the node where goal returns true
     function construct_path(last_node) {
         // Initialise with empty path, unknown parent, and last node as child
         var path = pair(last_node, []);
-        // STOP SAYING I NEED NOT INITIALIZE TO UNDEFINED, YOU LITTLE PIECE OF
-        // ... SOFTWARE!
-        // YOU THROW ERROR EVERYTIME I DO AN ASSIGNMENT WITHOUT DECLARATION
-        // OR DECLARATION WITHOUT INITIAL VALUE
+        // Preventing "Error undefined at undefined, line undefined"
         var parent = undefined;
         var child = last_node;
         // When we have not reached starting point
@@ -111,13 +108,13 @@ function bfs(goal, start) {
         // Extract the node's neighbours
         parent_neighbours = parent_node.getNeighbours();
         // Find out which neighbour nodes have not been visited
-        // FFS IT'S NOT A BLOODY LOOP
-        // STOP SAYING RANDOM THINGS AND START MAKING SENSE
+        // and fulfills room_condition
+        var rc = room_condition;
         var filtered = filter(function(x) {
-                                  return !isIndex(x.getName(), visited);
+                                  return !isIndex(x.getName(), visited)
+                                          && rc(x);
                               }, parent_neighbours);
         // Enqueue them into to_visit and mark down their parent to meta
-        // AGAIN? YOU THINK WHAT? I STUPID ISIT?
         for_each(function(x) {
                      enqueue(to_visit, x);
                      meta[x.getName()] = parent_node;
@@ -297,11 +294,12 @@ icsbot.prototype.__act = function(){
         self.path = bfs(function(x) {
                           return !is_empty_list(
                                      filter(isSomething(obj),
-                                            x.getThings()))
-                                 && (is_empty_list(my_keycards)
-                                            ? !isSomething(ProtectedRoom)(x)
-                                            : true);
-                        }, self.getLocation());
+                                            x.getThings()));
+                        }, self.getLocation(),
+                        (is_empty_list(my_keycards)
+                            ? function(x) {
+                                return !isSomething(ProtectedRoom)(x); }
+                            : function(x) { return true; }));
     }
     // Search for path towards the nearest instance of Occupant obj
     // But avoid going into ProtectedRoom if we have no KeyCard
@@ -310,13 +308,13 @@ icsbot.prototype.__act = function(){
         var my_keycards = filter(isSomething(Keycard), self.getPossessions());
         self.path = bfs(function(x) {
                            return !is_empty_list(filter(isSomething(ServiceBot),
-                                                        x.getOccupants()))
-                                   && (is_empty_list(my_keycards)
-                                            ? !isSomething(ProtectedRoom)(x)
-                                            : true);
-                        }, self.getLocation());
+                                                        x.getOccupants()));
+                        }, self.getLocation(),
+                        (is_empty_list(my_keycards)
+                            ? function(x) {
+                                return !isSomething(ProtectedRoom)(x); }
+                            : function(x) { return true; }));
     }
-    // Enumerate Occupant obj in a specified range
     
     attack();
 
@@ -352,13 +350,6 @@ icsbot.prototype.__act = function(){
         // If I neighbour at least a generator room
         if (!is_empty_list(genroom)) {
             var move_target = head(genroom);
-        // If I neighbour at least one protected room and I have a keycard
-        // Fulfilling requirement of M17 T2 and requirement of M16
-        } else if (!is_empty_list(protectedroom)) {
-            var move_target = head(protectedroom);
-            // TOO MANY ERRORS? 91% SCANNED ONLY?
-            // I HAVE TO DEBUG THE CALL STACK OF THIS PROGRAMME TO 100%
-            // WHEN I HAVE ERRORS NO MATTER WHAT. WORK HARDER!
         // If we have a path to follow and we are still on track
         } else if (length(self.path) > 1 && here === head(self.path)) {
             // Proceed to the next room in the path

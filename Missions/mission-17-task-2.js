@@ -57,7 +57,8 @@ function isIndex(x, arr) {
 // Breadth-First Search
 // goal: function (node) { return ...; }
 // start: room
-function bfs(goal, start) {
+// room_condition: function (node) { return ...; }
+function bfs(goal, start, room_condition) {
     // To construct the path to follow to reach the node where goal returns true
     function construct_path(last_node) {
         // Initialise with empty path, unknown parent, and last node as child
@@ -108,8 +109,11 @@ function bfs(goal, start) {
         // Extract the node's neighbours
         parent_neighbours = parent_node.getNeighbours();
         // Find out which neighbour nodes have not been visited
+        // and fulfills room_condition
+        var rc = room_condition;
         var filtered = filter(function(x) {
-                                  return !isIndex(x.getName(), visited);
+                                  return !isIndex(x.getName(), visited)
+                                          && rc(x);
                               }, parent_neighbours);
         // Enqueue them into to_visit and mark down their parent to meta
         for_each(function(x) {
@@ -195,11 +199,12 @@ icsbot.prototype.__act = function(){
         self.path = bfs(function(x) {
                           return !is_empty_list(
                                      filter(isSomething(obj),
-                                            x.getThings()))
-                                 && (is_empty_list(my_keycards)
-                                            ? !isSomething(ProtectedRoom)(x)
-                                            : true);
-                        }, self.getLocation());
+                                            x.getThings()));
+                        }, self.getLocation(),
+                        (is_empty_list(my_keycards)
+                            ? function(x) {
+                                return !isSomething(ProtectedRoom)(x); }
+                            : function(x) { return true; }));
     }
     // Search for path towards the nearest instance of Occupant obj
     // But avoid going into ProtectedRoom if we have no KeyCard
@@ -208,11 +213,12 @@ icsbot.prototype.__act = function(){
         var my_keycards = filter(isSomething(Keycard), self.getPossessions());
         self.path = bfs(function(x) {
                            return !is_empty_list(filter(isSomething(ServiceBot),
-                                                        x.getOccupants()))
-                                   && (is_empty_list(my_keycards)
-                                            ? !isSomething(ProtectedRoom)(x)
-                                            : true);
-                        }, self.getLocation());
+                                                        x.getOccupants()));
+                        }, self.getLocation(),
+                        (is_empty_list(my_keycards)
+                            ? function(x) {
+                                return !isSomething(ProtectedRoom)(x); }
+                            : function(x) { return true; }));
     }
     
     attack();
