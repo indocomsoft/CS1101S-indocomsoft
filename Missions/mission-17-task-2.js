@@ -2,7 +2,7 @@
 
 /* M17 T2
  * Added code to:
- * 1. When encountering adjacent generator room:
+ * 1. When encountering adjacent generator room: (only to fulfill the spec)
  *    a. Remember the location if I do not have a keycard
  *    b. Move to it if I have a keycard
  * 2. Do a breadth-first search to find optimum path to take to find:
