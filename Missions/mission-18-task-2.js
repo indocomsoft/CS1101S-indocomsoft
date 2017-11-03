@@ -243,41 +243,31 @@ icsbot.prototype.__act = function(){
         var svcbots = undefined;
         var secdrones = undefined;
         var to_attack = undefined;
-        // If I have a charged MeleeWeapon
-        if (!is_empty_list(charged_melee)) {
-            // Find service bots in the same room
-            svcbots = filter(isSomething(ServiceBot), here.getOccupants());
-            // Find security drones in the same room
-            secdrones = filter(isSomething(SecurityDrone),
-                                               here.getOccupants());
-            // Avoid attacking ServiceBot if I already have a KeyCard so as not
-            // to aggravate them and spawn even more SecurityDrones
-            // to_attack = (is_empty_list(my_keycards)
-            //                     ? svcbots
-            //                     : append(svcbots, secdrones));
-            to_attack = append(svcbots, secdrones);
-            self.use(head(charged_melee), to_attack);
-        } else { }
-        // If I have a charged RangedWeapon
-        if (!is_empty_list(charged_ranged)) {
-            var cur_ranged = head(charged_ranged);
-            svcbots = enum_obj_dir(ServiceBot, cur_ranged.getRange());
-            secdrones = enum_obj_dir(SecurityDrone, cur_ranged.getRange());
-            // Avoid attacking ServiceBot if I already have a KeyCard so as not
-            // to aggravate them and spawn even more SecurityDrones
-            // to_attack = (is_empty_list(my_keycards)
-            //                     ? svcbots
-            //                     : append(svcbots, secdrones));
-            to_attack = append(svcbots, secdrones);
-            self.use(cur_ranged, to_attack);
-        } else { }
-
-        // If I have a charged SpellWeapon
-        if (!is_empty_list(charged_spell)) {
-            var cur_spell = head(charged_spell);
-            var dir = find_optimum_dir(cur_spell.getRange());
-            self.use(cur_spell, dir);
-        } else { }
+        // If I have charged MeleeWeapon
+        for_each(function(x){
+                    // Find service bots in the same room
+                    svcbots = filter(isSomething(ServiceBot),
+                                     here.getOccupants());
+                    // Find security drones in the same room
+                    secdrones = filter(isSomething(SecurityDrone),
+                                                       here.getOccupants());
+                    to_attack = append(svcbots, secdrones);
+                    self.use(x, to_attack);
+                 }, charged_melee);
+        // If I have charged RangedWeapon
+        for_each(function(x) {
+                    var cur_ranged = x;
+                    svcbots = enum_obj_dir(ServiceBot, cur_ranged.getRange());
+                    secdrones = enum_obj_dir(SecurityDrone,
+                                             cur_ranged.getRange());
+                    to_attack = append(svcbots, secdrones);
+                    self.use(cur_ranged, to_attack);   
+                 }, charged_ranged);
+        for_each(function(x) {
+                    var cur_spell = x;
+                    var dir = find_optimum_dir(cur_spell.getRange());
+                    self.use(cur_spell, dir);
+                 }, charged_spell);
 
         // Retrieve a list of Keycards in the current room
         var keycards = filter(isSomething(Keycard), here.getThings());
@@ -399,8 +389,18 @@ icsbot.prototype.__act = function(){
         }
     // If I do not have a keycard, move towards the nearest ServiceBot and attack
     } else {
-        // BFS towards the nearest ServiceBot
-        search_occupant(ServiceBot);
+        // Search for any dropped but not picked up keycards
+        search_thing(Keycard);
+        // If there isn't any
+        if (is_empty_list(self.path)) {
+            // BFS towards the nearest ServiceBot
+            search_occupant(ServiceBot);
+            // If there isn't any
+            if (is_empty_list(self.path)) {
+                // BFS towards the nearest SecurityDrone
+                search_occupant(SecurityDrone);
+            } else { }
+        } else { }
         // Move myself to the next location in the path
         var move_target = head(self.path);
     }
