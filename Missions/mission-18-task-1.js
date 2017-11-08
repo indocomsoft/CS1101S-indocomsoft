@@ -5,10 +5,17 @@
  * 1. Adapt current code to only use charged MeleeWeapon
  * 2. Add function to find target for RangedWeapon and code to attack any
  *    target found if I have any charged RangedWeapon
- * 3. Do similar to (2) but with SpellWeapon instead
+ * 3. Do similar to (2) but with SpellWeapon instead, and include current room
+ *    because in my infinite wisdom gained after consuming Menz's Eseence of
+ *    Recursion, I decided to "If there are bots and/or drones only in your
+ *    room, and no other bots or drones in range, I will attack it using my
+ *    SpellWeapon"
  * 4. Removed restriction of not attacking ServiceBot when we have a keycard
  *    despite this aggravating the SecurityDrones, because, WM said so in the
  *    spec.
+ * Also, changed the next room conditional to:
+ * BFS towards the nearest ServiceBot or KeyCard, failing that, BFS towards the
+ * nearest ServiceBot, failing that, move randomly
 */
 
 
@@ -192,6 +199,9 @@ icsbot.prototype.__act = function(){
     }
 
     // For SpellWeapon, find optimum direction to shoot at
+    // Includes the current room because, mission requirement
+    // This is to account for when there is no bot/drone in range,
+    // But there is a bot/drone in my room
     // If there is no good direction, return undefined
     function find_optimum_dir(range) {
         var here = self.getLocation();
@@ -215,6 +225,10 @@ icsbot.prototype.__act = function(){
                 return head(max);
             } else {
                 var cur = head(exits);
+                // initial loc = here because, use SpellWeapon in any valid
+                // direction would also kill any bot in my room.
+                // This is to account for when there is no bot/drone in range,
+                // But there is a bot/drone in my room
                 var no_killed = help(cur, here, 1, 0);
                 return helper(tail(exits), 
                               (tail(max) > no_killed ? max
@@ -238,46 +252,33 @@ icsbot.prototype.__act = function(){
         var charged_spell = filter(isSomething(SpellWeapon), charged_weapons);
         // Retrieve a list of keycards I own
         var my_keycards = filter(isSomething(Keycard), self.getPossessions());
-        // Initialize variables to prevent
-        // "Error undefined at undefined, line undefined"
-        var svcbots = undefined;
-        var secdrones = undefined;
-        var to_attack = undefined;
-        // If I have a charged MeleeWeapon
-        if (!is_empty_list(charged_melee)) {
-            // Find service bots in the same room
-            svcbots = filter(isSomething(ServiceBot), here.getOccupants());
-            // Find security drones in the same room
-            secdrones = filter(isSomething(SecurityDrone),
-                                               here.getOccupants());
-            // Avoid attacking ServiceBot if I already have a KeyCard so as not
-            // to aggravate them and spawn even more SecurityDrones
-            // to_attack = (is_empty_list(my_keycards)
-            //                     ? svcbots
-            //                     : append(svcbots, secdrones));
-            to_attack = append(svcbots, secdrones);
-            self.use(head(charged_melee), to_attack);
-        } else { }
-        // If I have a charged RangedWeapon
-        if (!is_empty_list(charged_ranged)) {
-            var cur_ranged = head(charged_ranged);
-            svcbots = enum_obj_dir(ServiceBot, cur_ranged.getRange());
-            secdrones = enum_obj_dir(SecurityDrone, cur_ranged.getRange());
-            // Avoid attacking ServiceBot if I already have a KeyCard so as not
-            // to aggravate them and spawn even more SecurityDrones
-            // to_attack = (is_empty_list(my_keycards)
-            //                     ? svcbots
-            //                     : append(svcbots, secdrones));
-            to_attack = append(svcbots, secdrones);
-            self.use(cur_ranged, to_attack);
-        } else { }
-
-        // If I have a charged SpellWeapon
-        if (!is_empty_list(charged_spell)) {
-            var cur_spell = head(charged_spell);
-            var dir = find_optimum_dir(cur_spell.getRange());
-            self.use(cur_spell, dir);
-        } else { }
+        // If I have charged MeleeWeapon
+        for_each(function(x){
+                    // Find service bots in the same room
+                    var svcbots = filter(isSomething(ServiceBot),
+                                         here.getOccupants());
+                    // Find security drones in the same room
+                    var secdrones = filter(isSomething(SecurityDrone),
+                                           here.getOccupants());
+                    var to_attack = append(svcbots, secdrones);
+                    self.use(x, to_attack);
+                 }, charged_melee);
+        // If I have charged RangedWeapon
+        for_each(function(x) {
+                    var cur_ranged = x;
+                    var svcbots = enum_obj_dir(ServiceBot, cur_ranged.getRange());
+                    var secdrones = enum_obj_dir(SecurityDrone,
+                                                 cur_ranged.getRange());
+                    var to_attack = append(svcbots, secdrones);
+                    self.use(cur_ranged, to_attack);   
+                 }, charged_ranged);
+        for_each(function(x) {
+                    var cur_spell = x;
+                    var dir = find_optimum_dir(cur_spell.getRange());
+                    if (dir !== undefined) {
+                        self.use(cur_spell, dir);
+                    } else { }
+                 }, charged_spell);
 
         // Retrieve a list of Keycards in the current room
         var keycards = filter(isSomething(Keycard), here.getThings());
@@ -315,19 +316,17 @@ icsbot.prototype.__act = function(){
                                 return !isSomething(ProtectedRoom)(x); }
                             : function(x) { return true; }));
     }
+
     
     attack();
 
     // Get the current location
     var here = self.getLocation();
+
     // Retrieve a list of neighbouring rooms
     var neighbours = here.getNeighbours();
     // Insert the current room into visited
     self.visited[here.getName()] = true;
-    var unvisited_neighbours = filter(function(x) {
-                                          return !isIndex(x.getName(),
-                                                          self.visited);
-                                      }, neighbours);
     // Retrieve the list of keycards I own
     var my_keycards = filter(isSomething(Keycard), self.getPossessions());
 
@@ -361,10 +360,39 @@ icsbot.prototype.__act = function(){
             // Move myself to the next location in the path
             var move_target = head(self.path);
         }
-    // If I do not have a keycard, move towards the nearest ServiceBot and attack
+    // If I do not have a keycard
     } else {
-        // BFS towards the nearest ServiceBot
-        search_occupant(ServiceBot);
+        var my_keycards = filter(isSomething(Keycard), self.getPossessions());
+        here = self.getLocation();
+        // BFS towards the nearest ServiceBot or keycard
+        self.path = bfs(function(x) {
+                          return !is_empty_list(
+                                        filter(function(y) {
+                                                 return isSomething(Keycard)(y);
+                                               },
+                                               x.getThings()))
+                                || !is_empty_list(
+                                     filter(function(y) {
+                                              return isSomething(ServiceBot)(y);
+                                            },
+                                            x.getOccupants()));
+                        }, self.getLocation(),
+                        (is_empty_list(my_keycards)
+                            ? function(x) {
+                                return !isSomething(ProtectedRoom)(x); }
+                            : function(x) { return true; }));
+        // If there isn't any
+        if (is_empty_list(self.path)) {
+            // BFS towards the nearest SecurityDrone
+            search_occupant(SecurityDrone);
+
+            // If there isn't any
+            if (is_empty_list(self.path)) {
+                // Move randomly
+                this.moveTo(list_ref(neighbours,
+                            math_floor(math_random() * length(neighbours))));
+            } else { }
+        } else { }
         // Move myself to the next location in the path
         var move_target = head(self.path);
     }

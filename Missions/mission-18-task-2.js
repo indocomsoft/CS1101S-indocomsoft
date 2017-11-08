@@ -3,6 +3,10 @@
 /* M18 T2
  * Changing the code at the next room conditional to arm the bomb when moving
  * to Generator room, and then flee.
+ * Fleeing mode: search for nearest service bot outside the bomb range.
+ * Failing that, search for nearest drone. Failing that, if inside the bomb
+ * range, move outside the bomb range. If already outside the bomb range, move
+ * randomly.
 */
 
 
@@ -192,6 +196,9 @@ icsbot.prototype.__act = function(){
     }
 
     // For SpellWeapon, find optimum direction to shoot at
+    // Includes the current room because, mission requirement
+    // This is to account for when there is no bot/drone in range,
+    // But there is a bot/drone in my room
     // If there is no good direction, return undefined
     function find_optimum_dir(range) {
         var here = self.getLocation();
@@ -215,6 +222,10 @@ icsbot.prototype.__act = function(){
                 return head(max);
             } else {
                 var cur = head(exits);
+                // initial loc = here because, use SpellWeapon in any valid
+                // direction would also kill any bot in my room.
+                // This is to account for when there is no bot/drone in range,
+                // But there is a bot/drone in my room
                 var no_killed = help(cur, here, 1, 0);
                 return helper(tail(exits), 
                               (tail(max) > no_killed ? max
@@ -238,35 +249,32 @@ icsbot.prototype.__act = function(){
         var charged_spell = filter(isSomething(SpellWeapon), charged_weapons);
         // Retrieve a list of keycards I own
         var my_keycards = filter(isSomething(Keycard), self.getPossessions());
-        // Initialize variables to prevent
-        // "Error undefined at undefined, line undefined"
-        var svcbots = undefined;
-        var secdrones = undefined;
-        var to_attack = undefined;
         // If I have charged MeleeWeapon
         for_each(function(x){
                     // Find service bots in the same room
-                    svcbots = filter(isSomething(ServiceBot),
-                                     here.getOccupants());
+                    var svcbots = filter(isSomething(ServiceBot),
+                                         here.getOccupants());
                     // Find security drones in the same room
-                    secdrones = filter(isSomething(SecurityDrone),
-                                                       here.getOccupants());
-                    to_attack = append(svcbots, secdrones);
+                    var secdrones = filter(isSomething(SecurityDrone),
+                                           here.getOccupants());
+                    var to_attack = append(svcbots, secdrones);
                     self.use(x, to_attack);
                  }, charged_melee);
         // If I have charged RangedWeapon
         for_each(function(x) {
                     var cur_ranged = x;
-                    svcbots = enum_obj_dir(ServiceBot, cur_ranged.getRange());
-                    secdrones = enum_obj_dir(SecurityDrone,
-                                             cur_ranged.getRange());
-                    to_attack = append(svcbots, secdrones);
+                    var svcbots = enum_obj_dir(ServiceBot, cur_ranged.getRange());
+                    var secdrones = enum_obj_dir(SecurityDrone,
+                                                 cur_ranged.getRange());
+                    var to_attack = append(svcbots, secdrones);
                     self.use(cur_ranged, to_attack);   
                  }, charged_ranged);
         for_each(function(x) {
                     var cur_spell = x;
                     var dir = find_optimum_dir(cur_spell.getRange());
-                    self.use(cur_spell, dir);
+                    if (dir !== undefined) {
+                        self.use(cur_spell, dir);
+                    } else { }
                  }, charged_spell);
 
         // Retrieve a list of Keycards in the current room
@@ -300,8 +308,8 @@ icsbot.prototype.__act = function(){
                            return !is_empty_list(filter(isSomething(ServiceBot),
                                                         x.getOccupants()))
                                     && (self.fleeing
-                                            ? is_within_bomb_range
-                                            : function(x) { return true; });
+                                            ? not_within_bomb_range(x)
+                                            : true);
                         }, self.getLocation(),
                         (is_empty_list(my_keycards)
                             ? function(x) {
@@ -309,10 +317,10 @@ icsbot.prototype.__act = function(){
                             : function(x) { return true; }));
     }
     
-    function is_within_bomb_range(room) {
+    function not_within_bomb_range(room) {
         function helper(exits) {
             function help(dir, loc, count) {
-                if (count > range || !loc) {
+                if (count > self.bomb_range || !loc) {
                     return false;
                 } else if (loc === self.bomb_armed) {
                     return true;
@@ -328,7 +336,7 @@ icsbot.prototype.__act = function(){
                                           : helper(tail(exits));
             }
         }
-        return helper(room.getExits());
+        return !helper(room.getExits());
     }
 
     
@@ -350,10 +358,6 @@ icsbot.prototype.__act = function(){
     var neighbours = here.getNeighbours();
     // Insert the current room into visited
     self.visited[here.getName()] = true;
-    var unvisited_neighbours = filter(function(x) {
-                                          return !isIndex(x.getName(),
-                                                          self.visited);
-                                      }, neighbours);
     // Retrieve the list of keycards I own
     var my_keycards = filter(isSomething(Keycard), self.getPossessions());
 
@@ -389,16 +393,64 @@ icsbot.prototype.__act = function(){
         }
     // If I do not have a keycard, move towards the nearest ServiceBot and attack
     } else {
-        // Search for any dropped but not picked up keycards
-        search_thing(Keycard);
+        var my_keycards = filter(isSomething(Keycard), self.getPossessions());
+        here = self.getLocation();
+        // BFS towards the nearest ServiceBot (or if not fleeing, nearest
+        // keycard because fleeing implies we have the bomb, thus we do not need
+        // keycard anymore)
+        self.path = bfs(function(x) {
+                          return (self.fleeing
+                                    ? false
+                                    : !is_empty_list(
+                                        filter(function(y) {
+                                                 return isSomething(Keycard)(y);
+                                               },
+                                               x.getThings())))
+                                || !is_empty_list(
+                                     filter(function(y) {
+                                              return isSomething(ServiceBot)(y);
+                                            },
+                                            x.getOccupants()))
+                                && (self.fleeing
+                                            ? not_within_bomb_range(x)
+                                            : true);
+                        }, self.getLocation(),
+                        (is_empty_list(my_keycards)
+                            ? function(x) {
+                                return !isSomething(ProtectedRoom)(x); }
+                            : function(x) { return true; })
+                        // if we are fleeing and not within bomb range, then
+                        // do not use any room within bomb range as a path
+                        //
+                        // otherwise, either we are not in fleeing mode
+                        // or we are within bomb range. In both cases,
+                        // we do not care if our path is within bomb range
+                        // as long as we get to our objective (nearest keycard
+                        // or servicebot in the former case, nearest servicebot
+                        // outside bomb range in the latter case)
+                        && ((self.fleeing && not_within_bomb_range(here))
+                                ? not_within_bomb_range
+                                : function(x) { return true; }));
         // If there isn't any
         if (is_empty_list(self.path)) {
-            // BFS towards the nearest ServiceBot
-            search_occupant(ServiceBot);
+            // BFS towards the nearest SecurityDrone
+            search_occupant(SecurityDrone);
             // If there isn't any
-            if (is_empty_list(self.path)) {
-                // BFS towards the nearest SecurityDrone
-                search_occupant(SecurityDrone);
+
+            // If we're fleeing and within bomb range
+            if (self.fleeing && !not_within_bomb_range(here)) {
+                // BFS outside of bomb range if in fleeing mode.
+                // Move randomly otherwise
+                self.path = bfs(function(x) {
+                                    return (self.fleeing
+                                                ? not_within_bomb_range(x)
+                                                : false); 
+                                }, self.getLocation(),
+                                function(x) { return true; });
+            // if not in fleeing mode, then just move randomly
+            } else if(is_empty_list(self.path)) {
+                this.moveTo(list_ref(neighbours,
+                            math_floor(math_random() * length(neighbours))));
             } else { }
         } else { }
         // Move myself to the next location in the path
