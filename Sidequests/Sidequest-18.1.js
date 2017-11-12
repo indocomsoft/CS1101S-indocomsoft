@@ -1,4 +1,5 @@
 // Source Week 10
+
 //-------------------------------------------------------------------------
 // README
 //-------------------------------------------------------------------------
@@ -246,10 +247,13 @@ Person.prototype.haveFit = function(){
 };
 Person.prototype.surroundings = function() {
     var self = this;
-    var otherThings = map(function(thing){ return thing.getName(); },
-                          filter(function(thing){ return thing !== self; },
-                                 this.getPlace().getThings()));
-    return listing(otherThings, "nothing");
+    var excludeMyself = filter(function(thing) {
+        return thing !== self;
+    }, this.getPlace().getThings());
+    var otherThingNames = map(function(thing){ 
+        return "" + thing.getName(); 
+    }, excludeMyself);
+    return listing(otherThingNames, "nothing");
 };
 Person.prototype.lookAround = function(){
     var self = this;
@@ -303,7 +307,7 @@ Person.prototype.drop = function(thing){
     } else {;}
 };
 Person.prototype.move = function(){
-    if(Math.floor(Math.random() * this.__threshold) === 0){
+    if(math_floor(math_random() * this.__threshold) === 0){
         this.__act();
     } else {;}
 };
@@ -497,7 +501,7 @@ function pickRandom(xs){
     if(is_empty_list(xs)){
         return false;
     } else {
-        return list_ref(xs, Math.floor(Math.random() * list_length(xs)));
+        return list_ref(xs, math_floor(math_random() * list_length(xs)));
     }
 }
 
@@ -635,8 +639,7 @@ var gmCard = MakeAndInstallSDCard("Grandmaster Card", gmOffice, "888-00-0001");
 // Interactive Game
 
 function tokenize(s){
-    var ret = s.split(" ");
-    return ret;
+    return s.split(" ");
 }
 
 
@@ -647,17 +650,17 @@ function makeMove(command){
         clock();
         displayGameState();
     } else {
-        var tokens = tokenize(command);
-
+        var tokens = command.split(" ");
+        
         if (tokens[0] === 'help') {
             display("Try these commands:");
             display("makeMove('listPossessions');");
-            display("makeMove('say &lt;something&gt;');");
+            display("makeMove('say <something>');");
             display("makeMove('haveFit');");
             display("makeMove('lookAround');");
-            display("makeMove('take &lt;something&gt;');");
-            display("makeMove('drop &lt;something&gt;');");
-            display("makeMove('go &lt;direction&gt;');");
+            display("makeMove('take <something>');");
+            display("makeMove('drop <something>');");
+            display("makeMove('go <direction>');");
         } else {
             var method = you[tokens[0]];
             if (!is_function(method)){
