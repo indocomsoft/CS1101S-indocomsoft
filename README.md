@@ -33,7 +33,7 @@ Language used is the Source, a subset of Javascript. The language evolves to be 
 3. **Contest 10.3 Sound**
 
 ![Contest 10.3](img/Contest-10.3.jpg)
- * Click [here](Contest/Contest-10.3.wav) to hear my entry.
+ * Click [here](Contests/Contest-10.3.wav) to hear my entry.
  * CS1101S Reaction to the entry:
  
 [![](http://img.youtube.com/vi/WcYRx5O-IHk/0.jpg)](http://www.youtube.com/watch?v=WcYRx5O-IHk)
