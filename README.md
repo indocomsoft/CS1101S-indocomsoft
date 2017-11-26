@@ -4,7 +4,7 @@ These are my code submissions for my [CS1101S](http://www.comp.nus.edu.sg/~cs110
 
 CS1101S is based on Massachussetts Institute of Technology (MIT) introductory programming class 6.001 and its textbook [Structure and Interpretation of Computer Programs (SICP)](https://en.wikipedia.org/wiki/Structure_and_Interpretation_of_Computer_Programs)
 
-Language used is the Source, a subset of Javascript. The language evolves to be broader and broader as weeks go on. Check out the specifications [here](The Source specification)
+Language used is the Source, a subset of Javascript. The language evolves to be broader and broader as weeks go on. Check out the specifications [here](The%20Source%20specification/)
 
 ## Contest Results
 ### Winner for
